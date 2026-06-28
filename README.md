@@ -1,8 +1,10 @@
-# Driver Monitoring System (DMS) - AI Detection (Phiên bản Windows)
+# Driver Monitoring System (DMS) - AI Detection (Cross-Platform: Windows & Raspberry Pi)
 
-Hệ thống giám sát trạng thái tài xế (phát hiện buồn ngủ, ngáp, mất tập trung) thời gian thực bằng trí tuệ nhân tạo, được thiết kế và tối ưu chạy trực tiếp trên hệ điều hành **Windows**. 
+Hệ thống giám sát trạng thái tài xế (phát hiện buồn ngủ, ngáp, mất tập trung) thời gian thực bằng trí tuệ nhân tạo. 
 
 Dự án kết hợp mô hình trích xuất đặc trưng khuôn mặt động (**MediaPipe Face Mesh**) và mô hình học sâu tuần hoàn **LSTM (PyTorch)** nhằm phân tích chuỗi hành vi thời gian thực trong 60 giây và đưa ra dự báo sớm trạng thái buồn ngủ/vi ngủ (Microsleep).
+
+Mã nguồn được thiết kế chạy **đa nền tảng (Cross-platform)**: Hỗ trợ kiểm thử trực quan trên **Windows** (cảnh báo qua loa PC) và triển khai thực tế trên **Raspberry Pi** (điều khiển còi và mô-tơ rung kết nối trực tiếp qua chân GPIO).
 
 ---
 
@@ -18,8 +20,9 @@ Dự án kết hợp mô hình trích xuất đặc trưng khuôn mặt động 
   - Báo động tức thì nếu nhắm mắt liên tục > 1.0 giây.
   - Báo động tức thì nếu lệch đầu, gục đầu quá góc quy định > 1.0 giây.
   - Cảnh báo mất dấu khuôn mặt (Face Lost) nếu tài xế lệch khỏi khung hình > 1.5 giây.
-- **Cảnh báo âm thanh**: Tích hợp còi bíp cảnh báo mặc định trực tiếp qua loa của máy tính Windows (sử dụng thư viện `winsound`).
-- **Tích hợp phần cứng ngoài (Arduino / ESP32)**: Truyền trạng thái cảnh báo thời gian thực xuống cổng COM (Serial) để kích hoạt còi chíp và mô tơ rung gắn ngoài.
+- **Tương thích phần cứng thông minh**:
+  - **Trên Windows**: Cảnh báo loa mặc định qua bộ phát âm thanh hệ thống (thư viện `winsound`).
+  - **Trên Raspberry Pi**: Tự động nhận diện và điều khiển trực tiếp mô-tơ rung và còi chíp qua các chân GPIO.
 - **Lưu lịch sử hoạt động**: Tự động lưu trữ thông số trạng thái mỗi giây vào cơ sở dữ liệu SQLite (`dms_history.db`) phục vụ giám sát và phân tích hành trình.
 
 ---
@@ -37,96 +40,58 @@ Dự án kết hợp mô hình trích xuất đặc trưng khuôn mặt động 
 
 ---
 
-## Yêu cầu môi trường
+## Hướng dẫn cài đặt và chạy trên Windows (Để kiểm thử)
 
-- **Hệ điều hành**: Windows 10 / 11.
-- **Môi trường Python**: **Python 3.10** hoặc **Python 3.11** (Bắt buộc dùng phiên bản này để tương thích tốt nhất với thư viện nhận diện khuôn mặt MediaPipe trên Windows). *Lưu ý: Không dùng Python 3.12 hoặc 3.13 vì cấu trúc đóng gói MediaPipe mới thiếu các lớp nhận diện cũ.*
-- **Thiết bị**: Camera USB Webcam tích hợp hoặc gắn ngoài.
+### 1. Yêu cầu môi trường
+- **Môi trường Python**: **Python 3.10** hoặc **Python 3.11** (Bắt buộc dùng phiên bản này để tương thích tốt nhất với MediaPipe Face Mesh trên Windows). *Lưu ý: Không dùng Python 3.12 hoặc 3.13.*
+- **Thiết bị**: Webcam USB tích hợp hoặc gắn ngoài.
 
----
-
-## Hướng dẫn cài đặt và sử dụng
-
-### Bước 1: Cài đặt các thư viện cần thiết
-Mở Command Prompt (cmd) hoặc PowerShell tại thư mục dự án và chạy lệnh sau để cài đặt các thư viện phụ thuộc:
+### 2. Cài đặt thư viện
+Mở Command Prompt (cmd) hoặc PowerShell tại thư mục dự án và chạy:
 ```cmd
 pip install -r requirements.txt
 ```
-Hoặc nếu muốn cài đặt thủ công từng thư viện:
-```cmd
-pip install opencv-python mediapipe torch pyserial numpy
-```
 
-### Bước 2: Chạy chương trình
-Khởi chạy ứng dụng bằng cách chỉ định chạy qua Python 3.10 (phòng trường hợp máy tính của bạn cài nhiều phiên bản Python):
+### 3. Chạy chương trình
+Khởi chạy ứng dụng bằng cách chỉ định chạy qua Python 3.10:
 ```cmd
 py -3.10 drowsiness_detector.py
 ```
-*(Nếu muốn tự huấn luyện lại mô hình LSTM từ đầu bằng dữ liệu giả lập, hãy chạy lệnh: `py -3.10 train_lstm.py` trước).*
 
 ---
 
-## Kết nối cảnh báo ngoại vi (Arduino / ESP32)
+## Hướng dẫn kết nối và chạy trên Raspberry Pi (Để triển khai)
 
-Nếu bạn muốn kết nối hệ thống với còi chíp và động cơ rung vật lý thông qua cổng USB của máy tính Windows:
+### 1. Sơ đồ kết nối còi và mô tơ rung trực tiếp vào GPIO
+Bạn kết nối trực tiếp các thiết bị ngoại vi vào các chân GPIO của Raspberry Pi (Khuyên dùng transistor điều khiển dòng hoặc module relay/opto cách ly để bảo vệ chân Pi):
 
-### 1. Cấu hình cổng COM trong Code
-Mở file `drowsiness_detector.py` và sửa biến `ARDUINO_PORT` ở phần khai báo đầu file thành cổng kết nối thực tế trên máy của bạn (Ví dụ: `COM3`, `COM4`):
-```python
-# Cấu hình cổng COM kết nối Arduino/ESP32 trên Windows (Rung + Còi vật lý)
-ARDUINO_PORT = 'COM3'  # Thay đổi thành cổng COM thực tế của bạn
+* **Động cơ rung**: Kết nối cực điều khiển (nhận tín hiệu kích hoạt) vào chân **GPIO 17** (BCM 17 / Physical Pin 11).
+* **Còi chíp (Active Buzzer)**: Kết nối cực điều khiển vào chân **GPIO 27** (BCM 27 / Physical Pin 13).
+* **Chân GND**: Kết nối cực âm chung về chân **GND** của Raspberry Pi (ví dụ: Chân số 9 hoặc 14).
+
+### 2. Cài đặt các gói phụ thuộc trên Ubuntu/Linux của Pi
+Mở Terminal trên Pi và chạy lệnh:
+```bash
+sudo apt update
+sudo apt install -y libcamera-tools
+pip install -r requirements.txt
 ```
+*Lưu ý: Gói `RPi.GPIO` sẽ tự động được sử dụng để điều khiển chân vật lý khi chương trình phát hiện đang chạy trên môi trường Linux có hỗ trợ GPIO.*
 
-### 2. Code mẫu nạp cho mạch Arduino / ESP32
-Dưới đây là mã nguồn C++ mẫu để bạn nạp vào mạch xử lý ngoại vi nhằm tiếp nhận tín hiệu từ phần mềm chuyển thành hành động rung/kêu:
-
-```cpp
-int buzzerPin = 8; // Chân kết nối còi chíp (Active Buzzer)
-int motorPin = 9;  // Chân kết nối mô tơ rung
-
-void setup() {
-  Serial.begin(9600); // Khởi tạo giao tiếp serial cùng baudrate với phần mềm
-  pinMode(buzzerPin, OUTPUT);
-  pinMode(motorPin, OUTPUT);
-  digitalWrite(buzzerPin, LOW);
-  digitalWrite(motorPin, LOW);
-}
-
-void loop() {
-  if (Serial.available() > 0) {
-    char alarm_level = Serial.read(); // Đọc trạng thái từ phần mềm gửi xuống (từ '0' đến '3')
-    
-    if (alarm_level == '0') { // Bình thường
-      digitalWrite(buzzerPin, LOW);
-      digitalWrite(motorPin, LOW);
-    } 
-    else if (alarm_level == '1') { // Mệt mỏi nhẹ
-      digitalWrite(motorPin, LOW);
-      // Còi kêu ngắt quãng chậm
-      digitalWrite(buzzerPin, HIGH);
-      delay(100);
-      digitalWrite(buzzerPin, LOW);
-      delay(900);
-    } 
-    else if (alarm_level == '2') { // Mệt mỏi vừa
-      digitalWrite(motorPin, HIGH);
-      // Còi kêu dồn dập
-      digitalWrite(buzzerPin, HIGH);
-      delay(200);
-      digitalWrite(buzzerPin, LOW);
-      delay(300);
-    } 
-    else if (alarm_level == '3') { // Nguy hiểm (Nhắm mắt/Lệch đầu lâu hoặc vi ngủ)
-      digitalWrite(motorPin, HIGH);
-      // Còi bíp liên tục cảnh báo khẩn cấp
-      digitalWrite(buzzerPin, HIGH);
-      delay(100);
-      digitalWrite(buzzerPin, LOW);
-      delay(100);
-    }
-  }
-}
-```
+### 3. Cấu hình Camera CSI (Nếu dùng Raspberry Pi Camera Module 3)
+1. Thêm driver cảm biến vào cuối file `/boot/firmware/config.txt` (hoặc `/boot/config.txt` tùy bản OS):
+   ```text
+   dtoverlay=imx708
+   ```
+2. Khởi động lại Raspberry Pi:
+   ```bash
+   sudo reboot
+   ```
+3. Chạy chương trình thông qua công cụ hỗ trợ tương thích libcamera:
+   ```bash
+   LD_PRELOAD=$(find /usr/lib -name "v4l2-compat.so" | head -n 1) python3 drowsiness_detector.py
+   ```
+   *(Hoặc `libcamerify python3 drowsiness_detector.py` nếu hệ điều hành của bạn có sẵn lệnh shortcut).*
 
 ---
 

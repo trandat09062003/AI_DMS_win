@@ -5,16 +5,25 @@ import torch
 import time
 import os
 import threading
-import winsound
+try:
+    import winsound
+    WINSOUND_AVAILABLE = True
+except ImportError:
+    WINSOUND_AVAILABLE = False
+
+try:
+    import RPi.GPIO as GPIO
+    GPIO_AVAILABLE = True
+except ImportError:
+    GPIO_AVAILABLE = False
+
+# Cấu hình cổng vật lý trên Raspberry Pi
+MOTOR_PIN = 17  # Chân GPIO 17 điều khiển động cơ rung
+BUZZER_PIN = 27 # Chân GPIO 27 điều khiển còi chíp vật lý
+
 import sqlite3
-import serial
 from collections import deque
 from lstm_model import DrowsinessLSTM
-
-# Cấu hình cổng COM kết nối Arduino/ESP32 trên Windows (Rung + Còi vật lý)
-# Nếu sử dụng phần cứng ngoài, hãy thay đổi cổng kết nối (ví dụ: 'COM3')
-ARDUINO_PORT = None  
-ser = None
 
 
 # --- Cấu hình các chỉ số mốc khuôn mặt (Landmarks) ---
@@ -58,24 +67,48 @@ MODEL_POINTS = np.array([
 alarm_level = 0  # 0: bình thường, 1: mệt nhẹ (no beep), 2: mệt vừa (beep chậm), 3: nguy hiểm (beep nhanh)
 
 def alarm_worker():
-    global alarm_level, ser
+    global alarm_level
     while True:
-        # 1. Phát âm thanh trên PC (Windows)
-        if alarm_level == 2:
-            winsound.Beep(2000, 300)
-            time.sleep(1.0)
-        elif alarm_level == 3:
-            winsound.Beep(2500, 150)
-            time.sleep(0.2)
-        else:
-            time.sleep(0.1)
-            
-        # 2. Gửi tín hiệu xuống cổng COM phần cứng (Arduino/ESP32) nếu kết nối thành công
-        if ser and ser.is_open:
+        # 1. Điều khiển cổng vật lý trên Raspberry Pi nếu có GPIO
+        if GPIO_AVAILABLE:
             try:
-                ser.write(str(alarm_level).encode())
+                if alarm_level == 0:
+                    GPIO.output(MOTOR_PIN, GPIO.LOW)
+                    GPIO.output(BUZZER_PIN, GPIO.LOW)
+                    time.sleep(0.1)
+                elif alarm_level == 1:
+                    GPIO.output(MOTOR_PIN, GPIO.LOW)
+                    GPIO.output(BUZZER_PIN, GPIO.HIGH)
+                    time.sleep(0.1)
+                    GPIO.output(BUZZER_PIN, GPIO.LOW)
+                    time.sleep(0.9)
+                elif alarm_level == 2:
+                    GPIO.output(MOTOR_PIN, GPIO.HIGH)
+                    GPIO.output(BUZZER_PIN, GPIO.HIGH)
+                    time.sleep(0.2)
+                    GPIO.output(BUZZER_PIN, GPIO.LOW)
+                    time.sleep(0.3)
+                elif alarm_level == 3:
+                    GPIO.output(MOTOR_PIN, GPIO.HIGH)
+                    GPIO.output(BUZZER_PIN, GPIO.HIGH)
+                    time.sleep(0.1)
+                    GPIO.output(BUZZER_PIN, GPIO.LOW)
+                    time.sleep(0.1)
             except:
-                pass
+                time.sleep(0.1)
+        # 2. Điều khiển âm thanh trên PC (Windows) nếu chạy thử nghiệm
+        else:
+            if WINSOUND_AVAILABLE:
+                if alarm_level == 2:
+                    winsound.Beep(2000, 300)
+                    time.sleep(1.0)
+                elif alarm_level == 3:
+                    winsound.Beep(2500, 150)
+                    time.sleep(0.2)
+                else:
+                    time.sleep(0.1)
+            else:
+                time.sleep(0.1)
 
 threading.Thread(target=alarm_worker, daemon=True).start()
 
@@ -164,7 +197,7 @@ def draw_bar(img, label, val, max_val, x, y, w, h, color):
 # --- Luồng Ứng Dụng Chính ---
 
 def main():
-    global alarm_level, ser
+    global alarm_level, GPIO_AVAILABLE, WINSOUND_AVAILABLE
     print("====================================================")
     print("DMS: HE THONG CANH BAO NGU GAT THOI GIAN THUC (AI)")
     print("====================================================")
@@ -261,13 +294,18 @@ def main():
     db_conn.commit()
     print(f"[INFO] Da khoi tao co so du lieu SQLite tai: {db_path}")
 
-    # Khởi tạo kết nối cổng COM Serial tới Arduino/ESP32 (nếu cấu hình)
-    if ARDUINO_PORT:
+    # Khởi tạo GPIO trên Raspberry Pi (nếu có sẵn)
+    if GPIO_AVAILABLE:
         try:
-            ser = serial.Serial(ARDUINO_PORT, 9600, timeout=1)
-            print(f"[INFO] Da ket noi phan cung qua cổng {ARDUINO_PORT} thanh cong.")
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(MOTOR_PIN, GPIO.OUT)
+            GPIO.setup(BUZZER_PIN, GPIO.OUT)
+            GPIO.output(MOTOR_PIN, GPIO.LOW)
+            GPIO.output(BUZZER_PIN, GPIO.LOW)
+            print("[INFO] Da khoi tao GPIO Raspberry Pi thanh cong.")
         except Exception as e:
-            print(f"[WARN] Khong the mo cong ket noi {ARDUINO_PORT}: {e}")
+            GPIO_AVAILABLE = False
+            print(f"[WARN] Khong the khoi tao GPIO: {e}")
 
     # Khởi tạo các cấu trúc lưu trữ và cửa sổ trượt
     frame_buffer = []  # Lưu dữ liệu trong 1 giây để tính trung bình
@@ -791,10 +829,10 @@ def main():
     if cap is not None:
         cap.release()
     cv2.destroyAllWindows()
-    if ser is not None and ser.is_open:
+    if GPIO_AVAILABLE:
         try:
-            ser.close()
-            print("[INFO] Da dong cong ket noi Serial.")
+            GPIO.cleanup()
+            print("[INFO] Da giai phong chan GPIO Raspberry Pi.")
         except:
             pass
     try:
