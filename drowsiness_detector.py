@@ -61,17 +61,19 @@ def alarm_worker():
         if alarm_level == 2:
             try:
                 winsound.PlaySound("warning.wav", winsound.SND_FILENAME | winsound.SND_ASYNC)
-                time.sleep(2.0)
+                time.sleep(1.0) # Giảm thời gian chờ phát lại để dồn dập hơn
             except:
-                winsound.Beep(2000, 300)
-                time.sleep(1.0)
+                # Tiếng kêu bíp lớn hơn (tần số 2000Hz) và dồn dập hơn
+                winsound.Beep(2000, 500)
+                time.sleep(0.2)
         elif alarm_level == 3:
             try:
                 winsound.PlaySound("danger.wav", winsound.SND_FILENAME | winsound.SND_ASYNC)
-                time.sleep(1.0)
+                time.sleep(0.5) # Lặp lại cực nhanh cho file âm thanh nguy hiểm
             except:
-                winsound.Beep(2500, 150)
-                time.sleep(0.2)
+                # Tiếng còi bíp hú LIÊN TỤC và CHÓI TAI (tần số cực cao 3000Hz, gần như không có độ trễ)
+                winsound.Beep(3000, 1000)
+                time.sleep(0.01)
         else:
             time.sleep(0.1)
 
