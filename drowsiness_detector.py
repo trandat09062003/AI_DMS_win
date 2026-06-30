@@ -57,13 +57,21 @@ alarm_level = 0  # 0: bình thường, 1: mệt nhẹ (no beep), 2: mệt vừa 
 def alarm_worker():
     global alarm_level
     while True:
-        # Phát âm thanh cảnh báo trên Windows
+        # Phát âm thanh cảnh báo trên Windows (Ưu tiên chơi file .wav nếu có, ngược lại Beep mặc định)
         if alarm_level == 2:
-            winsound.Beep(2000, 300)
-            time.sleep(1.0)
+            try:
+                winsound.PlaySound("warning.wav", winsound.SND_FILENAME | winsound.SND_ASYNC)
+                time.sleep(2.0)
+            except:
+                winsound.Beep(2000, 300)
+                time.sleep(1.0)
         elif alarm_level == 3:
-            winsound.Beep(2500, 150)
-            time.sleep(0.2)
+            try:
+                winsound.PlaySound("danger.wav", winsound.SND_FILENAME | winsound.SND_ASYNC)
+                time.sleep(1.0)
+            except:
+                winsound.Beep(2500, 150)
+                time.sleep(0.2)
         else:
             time.sleep(0.1)
 
