@@ -10,6 +10,9 @@ import sqlite3
 from collections import deque
 from lstm_model import DrowsinessLSTM
 
+# Cấu hình chỉ số camera mặc định (0: mặc định, thay đổi thành 1, 2... nếu máy có nhiều camera)
+CAMERA_INDEX = 0
+
 
 # --- Cấu hình các chỉ số mốc khuôn mặt (Landmarks) ---
 # Theo thuyết minh sáng kiến:
@@ -160,8 +163,9 @@ def main():
     cap = None
     simulated_mode = False
     
-    # Thử mở camera ở các chỉ số từ 0 đến 10 (đọc thử frame để chắc chắn thiết bị thu hình hoạt động)
-    for camera_idx in range(11):
+    # Sắp xếp danh sách quét camera: ưu tiên chỉ số cấu hình CAMERA_INDEX trước, sau đó quét các chỉ số còn lại
+    camera_scan_list = [CAMERA_INDEX] + [i for i in range(11) if i != CAMERA_INDEX]
+    for camera_idx in camera_scan_list:
         try:
             print(f"[INFO] Dang thu mo camera index {camera_idx}...")
             temp_cap = cv2.VideoCapture(camera_idx)
